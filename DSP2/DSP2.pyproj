@@ -11,7 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>DSP2</Name>
     <RootNamespace>DSP2</RootNamespace>
-    <InterpreterId>Global|VisualStudio|PyPy_3.10_v7.3.17_win64</InterpreterId>
+    <InterpreterId>Global|PythonCore|3.12</InterpreterId>
     <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -33,6 +33,7 @@
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.12" />
+    <InterpreterReference Include="Global|VisualStudio|pypy3.9-v7.3.16-win64" />
     <InterpreterReference Include="Global|VisualStudio|PyPy_3.10_v7.3.17_win64" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

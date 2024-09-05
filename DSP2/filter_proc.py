@@ -1,5 +1,7 @@
-import numpy as np
 import cv2
+import numpy as np
+
+import elem_wise_proc as ep
 
 
 def convo2d(image_array, kernel):
@@ -80,18 +82,18 @@ def roberts_operator(image_array):
 		[0.0, -1.0]
 	], dtype = float)
 
-	edge_1 = convo2d(image_array, kernel_1)
-	edge_2 = convo2d(image_array, kernel_2)
+	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	height, width, depth = image_array.shape
-	result_image_array = np.empty((height, width, depth), dtype = np.uint8)
+	edge_1 = convo2d(gray_image_array, kernel_1)
+	edge_2 = convo2d(gray_image_array, kernel_2)
+
+	height, width = gray_image_array.shape
+	result_image_array = np.empty((height, width), dtype = np.uint8)
 
 	for i in range(height):
 		for j in range(width):
-			for k in range(depth):
-				result_image_array[i, j, k] = np.clip(
-					(float(edge_1[i, j, k]) ** 2.0 + float(edge_2[i, j, k]) ** 2.0) ** 0.5,
-					0, 255
+				result_image_array[i, j] = np.clip(
+					(float(edge_1[i, j]) ** 2.0 + float(edge_2[i, j]) ** 2.0) ** 0.5, 0, 255
 				).astype(np.uint8)
 
 	return result_image_array
@@ -110,18 +112,18 @@ def sobel_operator(image_array):
 		[1.0, 0.0, -1.0]
 	], dtype = float)
 
-	edge_1 = convo2d(image_array, kernel_1)
-	edge_2 = convo2d(image_array, kernel_2)
+	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	height, width, depth = image_array.shape
-	result_image_array = np.empty((height, width, depth), dtype = np.uint8)
+	edge_1 = convo2d(gray_image_array, kernel_1)
+	edge_2 = convo2d(gray_image_array, kernel_2)
+
+	height, width = gray_image_array.shape
+	result_image_array = np.empty((height, width), dtype = np.uint8)
 
 	for i in range(height):
 		for j in range(width):
-			for k in range(depth):
-				result_image_array[i, j, k] = np.clip(
-					(float(edge_1[i, j, k]) ** 2.0 + float(edge_2[i, j, k]) ** 2.0) ** 0.5,
-					0, 255
+				result_image_array[i, j] = np.clip(
+					(float(edge_1[i, j]) ** 2.0 + float(edge_2[i, j]) ** 2.0) ** 0.5, 0, 255
 				).astype(np.uint8)
 
 	return result_image_array
@@ -140,17 +142,18 @@ def prewitt_operator(image_array):
 		[1.0, 0.0, -1.0]
 	], dtype = float)
 
-	edge_1 = convo2d(image_array, kernel_1)
-	edge_2 = convo2d(image_array, kernel_2)
+	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	height, width, depth = image_array.shape
-	result_image_array = np.empty((height, width, depth), dtype = np.uint8)
+	edge_1 = convo2d(gray_image_array, kernel_1)
+	edge_2 = convo2d(gray_image_array, kernel_2)
+
+	height, width = gray_image_array.shape
+	result_image_array = np.empty((height, width), dtype = np.uint8)
 
 	for i in range(height):
 		for j in range(width):
-			for k in range(depth):
-				result_image_array[i, j, k] = np.clip(
-					max(edge_1[i, j, k], edge_2[i, j, k]), 0, 255
+				result_image_array[i, j] = np.clip(
+					max(edge_1[i, j], edge_2[i, j]), 0, 255
 				).astype(np.uint8)
 
 	return result_image_array
