@@ -128,6 +128,7 @@ def roberts_operator(image_array):
 		[0.0, 1.0],
 		[-1.0, 0.0]
 	], dtype = float)
+
 	kernel_2 = np.array([
 		[1.0, 0.0],
 		[0.0, -1.0]
@@ -157,6 +158,7 @@ def sobel_operator(image_array):
 		[0.0, 0.0, 0.0],
 		[1.0, 2.0, 1.0]
 	], dtype = float)
+
 	kernel_2 = np.array([
 		[-1.0, 0.0, 1.0],
 		[-2.0, 0.0, 2.0],
@@ -187,6 +189,7 @@ def prewitt_operator(image_array):
 		[0.0, 0.0, 0.0],
 		[1.0, 1.0, 1.0]
 	], dtype = float)
+
 	kernel_2 = np.array([
 		[-1.0, 0.0, 1.0],
 		[-1.0, 0.0, 1.0],
@@ -238,7 +241,6 @@ def canny_analyse(magnitude_map, angle_map, ii, jj):
 
 
 def canny_checker(image_array, magnitude_map, angle_map, strong, weak, ii, jj):
-
 	if weak <= magnitude_map[ii, jj] < strong and image_array[ii, jj] == 0:
 		if canny_analyse(magnitude_map, angle_map, ii, jj):
 			image_array[ii, jj] = np.uint8(255)
@@ -246,12 +248,9 @@ def canny_checker(image_array, magnitude_map, angle_map, strong, weak, ii, jj):
 
 
 def canny_recursive(image_array, magnitude_map, angle_map, strong, weak, ii, jj):
-
 	if 0 < ii < image_array.shape[0] - 1 and 0 < jj < image_array.shape[1] - 1:
-
 		ii_array = np.array([ii - 1, ii - 1, ii - 1, ii, ii, ii + 1, ii + 1, ii + 1])
 		jj_array = np.array([jj - 1, jj, jj + 1, jj - 1, jj + 1, jj - 1, jj, jj + 1])
-
 		for k in range(8):
 			canny_checker(image_array, magnitude_map, angle_map, strong, weak, ii_array[k], jj_array[k])
 
@@ -263,6 +262,7 @@ def canny_operator(image_array, strong = 125, weak = 75, kernel_size = 3):
 		[0.0, 0.0, 0.0],
 		[1.0, 2.0, 1.0]
 	], dtype = float)
+
 	kernel_2 = np.array([
 		[-1.0, 0.0, 1.0],
 		[-2.0, 0.0, 2.0],

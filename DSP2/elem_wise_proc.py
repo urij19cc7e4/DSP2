@@ -1,15 +1,15 @@
 import numpy as np
 
 
-def linear_correction(image_array, alpha = 1.0, beta = 0.0):
+def linear_correction(image_array, alpha = 0.5, beta = 127.0):
 	return np.clip(image_array * alpha + beta, 0, 255).astype(np.uint8)
 
 
-def gamma_correction(image_array, gamma = 1.0, c = 1.0):
+def gamma_correction(image_array, gamma = 0.5, c = 1.05):
 	return np.clip(((image_array / 255.0) ** gamma) * 255.0 * c, 0, 255).astype(np.uint8)
 
 
-def log_correction(image_array, c = 1.0):
+def log_correction(image_array, c = 25.0):
 	return np.clip(np.log(image_array + 1.0) * c, 0, 255).astype(np.uint8)
 
 
@@ -40,13 +40,7 @@ def preparation(image_array, table):
 		raise Exception("Not implemented.")
 
 
-def cut_window_preparation(
-		image_array,
-		in_max = 191,
-		in_min = 64,
-		out_max = 255,
-		out_min = 0
-	):
+def cut_window_preparation(image_array, in_max = 191, in_min = 64, out_max = 255, out_min = 0):
 
 	table = np.clip(np.array(
 		[(out_max if (in_min <= i <= in_max) else out_min) for i in range(256)]
@@ -55,13 +49,7 @@ def cut_window_preparation(
 	return preparation(image_array, table)
 
 
-def cut_diagonal_preparation(
-		image_array,
-		in_end = 191,
-		in_start = 64,
-		out_end = 255,
-		out_start = 0
-	):
+def cut_diagonal_preparation(image_array, in_end = 191, in_start = 64, out_end = 255, out_start = 0):
 
 	table = np.clip(np.array(
 		[(
@@ -77,7 +65,7 @@ def cut_diagonal_preparation(
 
 
 def negative(image_array):
-	return np.clip(255 - image_array, 0, 255).astype(np.uint8)
+	return np.clip(np.uint8(255) - image_array, 0, 255).astype(np.uint8)
 
 
 def grayscale(image_array):
@@ -88,7 +76,9 @@ def grayscale(image_array):
 	for i in range(height):
 		for j in range(width):
 			r, g, b = image_array[i, j]
-			grayscale_image_array[i, j] = r * 0.299 + g * 0.587 + b * 0.114
+			grayscale_image_array[i, j] = np.clip(
+				float(r) * 0.299 + float(g) * 0.587 + float(b) * 0.114, 0, 255
+			).astype(np.uint8)
 
 	return grayscale_image_array
 

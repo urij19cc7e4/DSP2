@@ -5,10 +5,19 @@ from matplotlib import pyplot as plt
 
 import elem_wise_proc as ep
 import filter_proc as fp
+import histogram as hst
 
 image = Image.open('C:/Users/Urij/Downloads/photo_2024-09-03_19-43-39.jpg')
 image = image.convert('RGB')
 image_array = np.array(image)
+
+#hst.plot_image(image_array)
+#hst.plot_image(ep.linear_correction(image_array))
+#hst.plot_image(ep.gamma_correction(image_array))
+#hst.plot_image(ep.log_correction(image_array))
+#hst.plot_image(ep.grayscale(image_array))
+#hst.plot_image(ep.cut_window_preparation(image_array))
+#hst.plot_image(ep.cut_diagonal_preparation(image_array))
 
 #linear_correction_image_array = ep.linear_correction(image_array)
 #linear_correction_image = Image.fromarray(linear_correction_image_array)
@@ -101,15 +110,3 @@ canny_operator_image.save('canny_operator.jpg')
 #halftone_filter_image_array = fp.halftone_filter(image_array)
 #halftone_filter_image = Image.fromarray(halftone_filter_image_array)
 #halftone_filter_image.save('halftone_filter.jpg')
-
-plt.figure(figsize=(10, 5))
-
-plt.subplot(1, 2, 1)
-plt.title('Оригинальное изображение')
-plt.imshow(image)
-
-plt.subplot(1, 2, 2)
-plt.title('Обработанное изображение')
-plt.imshow(processed_image)
-
-plt.show()

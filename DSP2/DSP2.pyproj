@@ -30,6 +30,9 @@
     <Compile Include="filter_proc.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="histogram.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|VisualStudio|anaconda3" />
