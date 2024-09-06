@@ -15,15 +15,29 @@ def log_correction(image_array, c = 1.0):
 
 def preparation(image_array, table):
 
-	height, width, depth = image_array.shape
-	preparated_image_array = np.empty((height, width, depth), dtype = np.uint8)
+	if image_array.ndim == 2:
+		height, width = image_array.shape
+		preparated_image_array = np.empty((height, width), dtype = np.uint8)
 
-	for i in range(height):
-		for j in range(width):
-			for k in range(depth):
-				preparated_image_array[i, j, k] = table[image_array[i, j, k]]
+		for i in range(height):
+			for j in range(width):
+				preparated_image_array[i, j] = table[image_array[i, j]]
 
-	return preparated_image_array
+		return preparated_image_array
+
+	elif image_array.ndim == 3:
+		height, width, depth = image_array.shape
+		preparated_image_array = np.empty((height, width, depth), dtype = np.uint8)
+
+		for i in range(height):
+			for j in range(width):
+				for k in range(depth):
+					preparated_image_array[i, j, k] = table[image_array[i, j, k]]
+
+		return preparated_image_array
+
+	else:
+		raise Exception("Not implemented.")
 
 
 def cut_window_preparation(
