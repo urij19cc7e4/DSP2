@@ -33,6 +33,12 @@
     <Compile Include="histogram.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="object_feature.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="object_recognition.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|VisualStudio|anaconda3" />
