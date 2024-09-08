@@ -63,7 +63,7 @@ def recognize_recursive(image_array):
 					object_count += 1
 					scan_object_recursive(image_array, object_map, object_count, i, j)
 
-		return object_map, object_count
+		return object_map, int(object_count)
 
 	else:
 		raise Exception("Image must be grayscaled.")
@@ -212,13 +212,13 @@ def recognize_sequential(image_array):
 				else:
 					raise Exception("Image must be binarized.")
 
-		return object_map, object_count
+		return object_map, int(object_count)
 
 	else:
 		raise Exception("Image must be grayscaled.")
 
 
-def split_objects(objects_map, objects_count):
+def split_objects(image_array, objects_map, objects_count):
 
 	height, width, _ = objects_map.shape
 	objects_params = np.tile([height, width, 0, 0], (objects_count, 4))
@@ -240,6 +240,7 @@ def split_objects(objects_map, objects_count):
 					objects_params[index, 3] = j
 
 	for i in range(objects_count):
+		index = i + 1
 		o_height = objects_params[i, 2] - objects_params[i, 0] + 1
 		o_width = objects_params[i, 3] - objects_params[i, 1] + 1
 		object_array = np.zeros((o_height, o_width), dtype = np.uint8)
@@ -250,12 +251,12 @@ def split_objects(objects_map, objects_count):
 				index_1 = np.uint64(objects_params[i, 0] + ii)
 				index_2 = np.uint64(objects_params[i, 1] + jj)
 
-				if objects_map[index_1, index_2, 0] == i + 1:
-					object_array[ii, jj] = np.uint8(255)
-				if objects_map[index_1, index_2, 1] == i + 1:
+				if objects_map[index_1, index_2, 0] == index:
+					object_array[ii, jj] = image_array[index_1, index_2]
+				if objects_map[index_1, index_2, 1] == index:
 					edges_array[ii, jj] = np.uint8(255)
 
 		objects_list.append(object_array)
-		edges_list.append(edge_array)
+		edges_list.append(edges_array)
 
 	return objects_list, edges_list
