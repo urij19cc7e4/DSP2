@@ -14,4 +14,4 @@ image = img.open('C:/Users/Urij/Downloads/objects — копия.png')
 image = image.convert('RGB')
 image_array = np.array(image)
 
-oft.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 255, 240, 0, 255))
+orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 255, 240, 0, 255))

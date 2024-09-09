@@ -1,14 +1,9 @@
 import math
 import numpy as np
 import random as rnd
-from matplotlib import pyplot as plt
-from matplotlib import gridspec as gsp
-from dataclasses import dataclass
-
-import object_recognition as orc
 
 
-def calc_axis_eccentricity(object_array, center_x: float, center_y: float):
+def calc_axis_eccentricity(object_array: np.ndarray, center_x: float, center_y: float) -> (float, float):
 
 	height, width = object_array.shape
 	mu_xy, mu_xx, mu_yy = 0.0, 0.0, 0.0
@@ -30,7 +25,7 @@ def calc_axis_eccentricity(object_array, center_x: float, center_y: float):
 	return axis_angle, eccentricity
 
 
-def calc_center(object_array):
+def calc_center(object_array: np.ndarray) -> (float, float):
 
 	height, width = object_array.shape
 	result, result_x, result_y = 0.0, 0.0, 0.0
@@ -39,17 +34,18 @@ def calc_center(object_array):
 		for j in range(width):
 			if object_array[i, j] != 0:
 				result += float(object_array[i, j])
+
 				result_x += float(i) * float(object_array[i, j])
 				result_y += float(j) * float(object_array[i, j])
 
 	return result_x / result, result_y / result
 
 
-def calc_density(perimeter: float, square: float):
+def calc_density(perimeter: float, square: float) -> float:
 	return perimeter * perimeter / square
 
 
-def calc_perimeter(edges_array):
+def calc_perimeter(edges_array: np.ndarray) -> float:
 
 	height, width = edges_array.shape
 	result = 0.0
@@ -62,7 +58,7 @@ def calc_perimeter(edges_array):
 	return result
 
 
-def calc_square(object_array):
+def calc_square(object_array: np.ndarray) -> float:
 
 	height, width = object_array.shape
 	result = 0.0
@@ -75,79 +71,58 @@ def calc_square(object_array):
 	return result / 255.0
 
 
-@dataclass
-class object_info:
-	axis_angle: float = 0.0
-	eccentricity: float = 0.0
-	center_x: float = 0.0
-	center_y: float = 0.0
-	density: float = 0.0
-	perimeter: float = 0.0
-	square: float = 0.0
+def k_means(features_1: np.ndarray[float], features_2: np.ndarray[float], class_count = 2) -> np.ndarray:
 
+	object_count = features_1.shape[0]
+	center_array = np.zeros(class_count, dtype = np.dtype([("f1", float), ("f2", float)]))
+	result_array = np.empty(object_count, dtype = np.uint64)
 
-def plot_objects(image_array):
+	f1_max, f1_min = features_1.max(), features_1.min()
+	f2_max, f2_min = features_2.max(), features_2.min()
+	max_distance = float((f1_max - f1_min) ** 2.0 + (f2_max - f2_min) ** 2.0) ** 0.5
 
-	height, width = image_array.shape
-	object_map, object_count = orc.recognize_recursive(image_array)
-	objects_list, edges_list = orc.split_objects(image_array, object_map, object_count)
+	for i in range(class_count):
+		center_array[i][0] = rnd.uniform(f1_min, f1_max)
+		center_array[i][1] = rnd.uniform(f2_min, f2_max)
 
-	color_array = np.array([
-		[np.uint8(rnd.randint(64, 191)) for _ in range(3)] for _ in range(object_count)
-	])
+	while True:
+		__continue__ = False
+		center_array_temp = np.zeros(class_count, dtype = \
+			np.dtype([("f1", float), ("f2", float), ("__class__", np.uint64)]))
 
-	objects_image_array = np.empty((height, width, 3), dtype = np.uint8)
-	object_infos = []
+		for i in range(object_count):
+			min_distance = max_distance
+			nearest_class = -1
 
-	for i in range(object_count):
-		object_info_tmp = object_info()
+			for j in range(class_count):
+				distance = float((features_1[i] - center_array[j][0]) ** 2.0 \
+					+ (features_2[i] - center_array[j][1]) ** 2.0) ** 0.5
 
-		object_info_tmp.center_x, object_info_tmp.center_y = calc_center(objects_list[i])
-		object_info_tmp.axis_angle, object_info_tmp.eccentricity = calc_axis_eccentricity(
-			objects_list[i], object_info_tmp.center_x, object_info_tmp.center_y
-		)
-		object_info_tmp.perimeter = calc_perimeter(edges_list[i])
-		object_info_tmp.square = calc_square(objects_list[i])
-		object_info_tmp.density = calc_density(object_info_tmp.perimeter, object_info_tmp.square)
+				if min_distance > distance:
+					min_distance = distance
+					nearest_class = j
 
-		object_infos.append(object_info_tmp)
+			center_array_temp[nearest_class][0] += features_1[i]
+			center_array_temp[nearest_class][1] += features_2[i]
+			center_array_temp[nearest_class][2] += 1
+			result_array[i] = nearest_class
 
-	for i in range(height):
-		for j in range(width):
-			if object_map[i, j, 1] != 0:
-				objects_image_array[i, j] = color_array[np.uint64(object_map[i, j, 1] - 1)]
-			elif object_map[i, j, 0] != 0:
-				objects_image_array[i, j] = [np.uint8(255) - image_array[i, j] for _ in range(3)]
+		for i in range(class_count):
+			if center_array_temp[i][2] == 0:
+				center_array_temp[i][0] = center_array[i][0]
+				center_array_temp[i][1] = center_array[i][1]
 			else:
-				objects_image_array[i, j] = np.uint8(255), np.uint8(255), np.uint8(255)
+				center_array_temp[i][0] /= center_array_temp[i][2]
+				center_array_temp[i][1] /= center_array_temp[i][2]
 
-	for i in range(object_count):
-		o_height, o_width = objects_list[i].shape
+			if center_array_temp[i][0] != center_array[i][0] \
+				or center_array_temp[i][1] != center_array[i][1]:
+				__continue__ = True
 
-		for j in range(o_height):
-			for k in range(o_width):
-				objects_list[i][j, k] = np.uint8(255) - objects_list[i][j, k]
+		if __continue__:
+			for i in range(class_count):
+				center_array[i] = center_array_temp[i][0], center_array_temp[i][1]
+		else:
+			break
 
-	fig = plt.figure(figsize = (10, 5))
-	gs = gsp.GridSpec(object_count, 3, width_ratios = [4, 1, 1])
-
-	ax_big = plt.subplot(gs[:, 0])
-	ax_big.imshow(objects_image_array)
-	ax_big.axis("off")
-
-	for i in range(object_count):
-		o_title = f"Eccentricity: {object_infos[i].eccentricity:.2f}\n" \
-			f"Perimeter: {object_infos[i].perimeter:.2f}\n" \
-			f"Square: {object_infos[i].square:.2f}\n" \
-			f"Density: {object_infos[i].density:.2f}\n"
-
-		ax_small = plt.subplot(gs[i, 1])
-		ax_small.imshow(objects_list[i], cmap = "gray")
-		ax_small.axis("off")
-
-		ax_small_2 = plt.subplot(gs[i, 2])
-		ax_small_2.text(0.0, 0.0, o_title, fontsize = 9, color = "black")
-		ax_small_2.axis("off")
-
-	plt.tight_layout()
-	plt.show()
+	return result_array

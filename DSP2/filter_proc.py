@@ -5,7 +5,7 @@ import numpy as np
 import elem_wise_proc as ep
 
 
-def convo2d(image_array, kernel, floating = False):
+def convo2d(image_array: np.ndarray, kernel: np.ndarray, floating = False) -> np.ndarray:
 
 	h_kernel, w_kernel = kernel.shape
 	h_pad, w_pad = h_kernel // 2, w_kernel // 2
@@ -64,16 +64,14 @@ def convo2d(image_array, kernel, floating = False):
 			raise Exception("Not implemented.")
 
 
-def convo_test(image_array, kernel):
+def convo_test(image_array: np.ndarray, kernel: np.ndarray):
 
 	pad_y = kernel.shape[0] // 2
 	pad_x = kernel.shape[1] // 2
 	padded_array = cv2.copyMakeBorder(
 		image_array,
-		top = pad_y,
-		bottom = pad_y,
-		left = pad_x,
-		right = pad_x,
+		top = pad_y, bottom = pad_y,
+		left = pad_x, right = pad_x,
 		borderType = cv2.BORDER_CONSTANT,
 		value = 0
 	)
@@ -86,7 +84,7 @@ def convo_test(image_array, kernel):
 	print("Manual convolution result is equal to OpenCV's: " + np.all(manual_result == opencv_result))
 
 
-def gaussian_kernel(kernel_size = 3):
+def gaussian_kernel(kernel_size = 3) -> np.ndarray:
 
 	kernel_shift = kernel_size // 2
 	sigma_power = ((float(kernel_shift) / 3.0) ** 2.0) * 2.0
@@ -100,7 +98,7 @@ def gaussian_kernel(kernel_size = 3):
 	return kernel / np.sum(kernel)
 
 
-def low_pass_filter(image_array):
+def low_pass_filter(image_array: np.ndarray) -> np.ndarray:
 
 	kernel = np.array([
 		[1.0, 1.0, 1.0],
@@ -111,7 +109,7 @@ def low_pass_filter(image_array):
 	return convo2d(image_array, kernel)
 
 
-def high_pass_filter(image_array):
+def high_pass_filter(image_array: np.ndarray) -> np.ndarray:
 
 	kernel = np.array([
 		[-1.0, -1.0, -1.0],
@@ -122,7 +120,7 @@ def high_pass_filter(image_array):
 	return convo2d(image_array, kernel)
 
 
-def roberts_operator(image_array):
+def roberts_operator(image_array: np.ndarray) -> np.ndarray:
 
 	kernel_1 = np.array([
 		[0.0, 1.0],
@@ -136,22 +134,13 @@ def roberts_operator(image_array):
 
 	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	edge_1 = convo2d(gray_image_array, kernel_1)
-	edge_2 = convo2d(gray_image_array, kernel_2)
+	edge_1 = convo2d(gray_image_array, kernel_1, True)
+	edge_2 = convo2d(gray_image_array, kernel_2, True)
 
-	height, width = gray_image_array.shape
-	result_image_array = np.empty((height, width), dtype = np.uint8)
-
-	for i in range(height):
-		for j in range(width):
-			result_image_array[i, j] = np.clip(
-				(float(edge_1[i, j]) ** 2.0 + float(edge_2[i, j]) ** 2.0) ** 0.5, 0, 255
-			).astype(np.uint8)
-
-	return result_image_array
+	return np.clip((edge_1 ** 2.0 + edge_2 ** 2.0) ** 0.5, 0, 255).astype(np.uint8)
 
 
-def sobel_operator(image_array):
+def sobel_operator(image_array: np.ndarray) -> np.ndarray:
 
 	kernel_1 = np.array([
 		[-1.0, -2.0, -1.0],
@@ -167,22 +156,13 @@ def sobel_operator(image_array):
 
 	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	edge_1 = convo2d(gray_image_array, kernel_1)
-	edge_2 = convo2d(gray_image_array, kernel_2)
+	edge_1 = convo2d(gray_image_array, kernel_1, True)
+	edge_2 = convo2d(gray_image_array, kernel_2, True)
 
-	height, width = gray_image_array.shape
-	result_image_array = np.empty((height, width), dtype = np.uint8)
-
-	for i in range(height):
-		for j in range(width):
-			result_image_array[i, j] = np.clip(
-				(float(edge_1[i, j]) ** 2.0 + float(edge_2[i, j]) ** 2.0) ** 0.5, 0, 255
-			).astype(np.uint8)
-
-	return result_image_array
+	return np.clip((edge_1 ** 2.0 + edge_2 ** 2.0) ** 0.5, 0, 255).astype(np.uint8)
 
 
-def prewitt_operator(image_array):
+def prewitt_operator(image_array: np.ndarray) -> np.ndarray:
 
 	kernel_1 = np.array([
 		[-1.0, -1.0, -1.0],
@@ -198,26 +178,17 @@ def prewitt_operator(image_array):
 
 	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 
-	edge_1 = convo2d(gray_image_array, kernel_1)
-	edge_2 = convo2d(gray_image_array, kernel_2)
+	edge_1 = convo2d(gray_image_array, kernel_1, True)
+	edge_2 = convo2d(gray_image_array, kernel_2, True)
 
-	height, width = gray_image_array.shape
-	result_image_array = np.empty((height, width), dtype = np.uint8)
-
-	for i in range(height):
-		for j in range(width):
-			result_image_array[i, j] = np.clip(
-				max(float(edge_1[i, j]), float(edge_2[i, j])), 0, 255
-			).astype(np.uint8)
-
-	return result_image_array
+	return np.clip(np.maximum(edge_1, edge_2), 0, 255).astype(np.uint8)
 
 
-def laplacian_operator(image_array):
+def laplacian_operator(image_array: np.ndarray) -> np.ndarray:
 	return cv2.Laplacian(image_array, cv2.CV_64F).astype(np.uint8)
 
 
-def canny_analyse(magnitude_map, angle_map, ii, jj):
+def canny_analyse(magnitude_map: np.ndarray, angle_map: np.ndarray, ii: int, jj: int) -> bool:
 
 	angle = round(angle_map[ii, jj] / (math.pi / 4.0))
 	magnitude = magnitude_map[ii, jj]
@@ -240,22 +211,25 @@ def canny_analyse(magnitude_map, angle_map, ii, jj):
 	return False
 
 
-def canny_checker(image_array, magnitude_map, angle_map, strong, weak, ii, jj):
-	if weak <= magnitude_map[ii, jj] < strong and image_array[ii, jj] == 0:
-		if canny_analyse(magnitude_map, angle_map, ii, jj):
-			image_array[ii, jj] = np.uint8(255)
-			canny_recursive(image_array, magnitude_map, angle_map, strong, weak, ii, jj)
+def canny_recursive(image_array: np.ndarray, magnitude_map: np.ndarray, angle_map: np.ndarray,
+					strong: int, weak: int, ii: int, jj: int):
 
-
-def canny_recursive(image_array, magnitude_map, angle_map, strong, weak, ii, jj):
 	if 0 < ii < image_array.shape[0] - 1 and 0 < jj < image_array.shape[1] - 1:
 		ii_array = np.array([ii - 1, ii - 1, ii - 1, ii, ii, ii + 1, ii + 1, ii + 1])
 		jj_array = np.array([jj - 1, jj, jj + 1, jj - 1, jj + 1, jj - 1, jj, jj + 1])
+
 		for k in range(8):
-			canny_checker(image_array, magnitude_map, angle_map, strong, weak, ii_array[k], jj_array[k])
+			if weak <= magnitude_map[ii_array[k], jj_array[k]] < strong \
+				and image_array[ii_array[k], jj_array[k]] == 0 \
+				and canny_analyse(magnitude_map, angle_map, ii_array[k], jj_array[k]):
+
+				image_array[ii_array[k], jj_array[k]] = np.uint8(255)
+				canny_recursive(
+					image_array, magnitude_map, angle_map, strong, weak, ii_array[k], jj_array[k]
+				)
 
 
-def canny_operator(image_array, strong = 125, weak = 75, kernel_size = 3):
+def canny_operator(image_array: np.ndarray, strong = 150, weak = 50, kernel_size = 3) -> np.ndarray:
 
 	kernel_1 = np.array([
 		[-1.0, -2.0, -1.0],
@@ -269,11 +243,11 @@ def canny_operator(image_array, strong = 125, weak = 75, kernel_size = 3):
 		[-1.0, 0.0, 1.0]
 	], dtype = float)
 
-	height, width, _ = image_array.shape
-	result_image_array = np.zeros((height, width), dtype = np.uint8)
-
 	gray_image_array = np.copy(image_array) if image_array.ndim == 2 else ep.grayscale(image_array)
 	blurred_image_array = convo2d(gray_image_array, gaussian_kernel(kernel_size))
+
+	height, width = gray_image_array.shape
+	result_image_array = np.zeros((height, width), dtype = np.uint8)
 
 	sobel_1 = convo2d(blurred_image_array, kernel_1, True)
 	sobel_2 = convo2d(blurred_image_array, kernel_2, True)
@@ -294,7 +268,7 @@ def canny_operator(image_array, strong = 125, weak = 75, kernel_size = 3):
 	return result_image_array
 
 
-def harmonic_filter(image_array, kernel_size = 3):
+def harmonic_filter(image_array: np.ndarray, kernel_size = 3) -> np.ndarray:
 
 	kernel_pad = kernel_size // 2
 
@@ -337,7 +311,7 @@ def harmonic_filter(image_array, kernel_size = 3):
 		raise Exception("Not implemented.")
 
 
-def max_filter(image_array, kernel_size = 3):
+def max_filter(image_array: np.ndarray, kernel_size = 3) -> np.ndarray:
 
 	kernel_pad = kernel_size // 2
 
@@ -376,7 +350,7 @@ def max_filter(image_array, kernel_size = 3):
 		raise Exception("Not implemented.")
 
 
-def min_filter(image_array, kernel_size = 3):
+def min_filter(image_array: np.ndarray, kernel_size = 3) -> np.ndarray:
 
 	kernel_pad = kernel_size // 2
 
@@ -415,15 +389,11 @@ def min_filter(image_array, kernel_size = 3):
 		raise Exception("Not implemented.")
 
 
-def min_max_filter(image_array, kernel_size = 3):
-
-	min_image_array = min_filter(image_array, kernel_size)
-	min_max_image_array = max_filter(min_image_array, kernel_size)
-
-	return min_max_image_array
+def min_max_filter(image_array: np.ndarray, kernel_size = 3) -> np.ndarray:
+	return max_filter(min_filter(image_array, kernel_size), kernel_size)
 
 
-def median_filter(image_array, kernel_size = 3):
+def median_filter(image_array: np.ndarray, kernel_size = 3) -> np.ndarray:
 
 	kernel_pad = kernel_size // 2
 
@@ -470,7 +440,7 @@ def median_filter(image_array, kernel_size = 3):
 		raise Exception("Not implemented.")
 
 
-def emboss_filter(image_array):
+def emboss_filter(image_array: np.ndarray) -> np.ndarray:
 
 	kernel = np.array([
 		[0.0, -1.0, 0.0],
@@ -481,7 +451,7 @@ def emboss_filter(image_array):
 	return convo2d(image_array, kernel)
 
 
-def halftone_filter(image_array):
+def halftone_filter(image_array: np.ndarray) -> np.ndarray:
 
 	kernel_size = 4
 	kernel = np.array([

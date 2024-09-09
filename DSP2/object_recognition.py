@@ -1,6 +1,13 @@
+from dataclasses import dataclass
 from collections import defaultdict
+from matplotlib import gridspec as gsp
+from matplotlib import pyplot as plt
+import math
 import numpy as np
+import random as rnd
 import sys
+
+import object_feature as oft
 
 
 # FOR RECURSIVE IMPLEMENTATION
@@ -260,3 +267,111 @@ def split_objects(image_array, objects_map, objects_count):
 		edges_list.append(edges_array)
 
 	return objects_list, edges_list
+
+
+@dataclass
+class object_info:
+	__class__: str = ""
+	axis_angle: float = 0.0
+	eccentricity: float = 0.0
+	center_x: float = 0.0
+	center_y: float = 0.0
+	density: float = 0.0
+	perimeter: float = 0.0
+	square: float = 0.0
+
+
+def plot_objects(image_array):
+
+	height, width = image_array.shape
+	object_map, object_count = recognize_recursive(image_array)
+	objects_list, edges_list = split_objects(image_array, object_map, object_count)
+
+	bright_colors = ([
+		[255, 0, 0],
+		[0, 255, 0],
+		[0, 0, 255],
+		[255, 255, 0],
+		[0, 255, 255],
+		[255, 0, 255],
+		[255, 127, 0],
+		[127, 255, 0],
+		[255, 100, 155]
+	])
+
+	color_array = np.array([
+		[bright_colors[rnd.randint(0, 8)]] for _ in range(object_count)
+	])
+
+	objects_image_array = np.empty((height, width, 3), dtype = np.uint8)
+	object_infos = []
+
+	features_1 = np.empty(object_count, dtype = float)
+	features_2 = np.empty(object_count, dtype = float)
+
+	for i in range(object_count):
+		object_info_tmp = object_info()
+
+		object_info_tmp.center_x, object_info_tmp.center_y = oft.calc_center(objects_list[i])
+		object_info_tmp.axis_angle, object_info_tmp.eccentricity = oft.calc_axis_eccentricity(
+			objects_list[i], object_info_tmp.center_x, object_info_tmp.center_y
+		)
+		object_info_tmp.perimeter = oft.calc_perimeter(edges_list[i])
+		object_info_tmp.square = oft.calc_square(objects_list[i])
+		object_info_tmp.density = oft.calc_density(object_info_tmp.perimeter, object_info_tmp.square)
+
+		# VALUES FOR PICTURE IN MANUAL (3 screws, cube, ring, and plate)
+		# would separate screws from 'rounded' objects
+		# but no need of logs in lab tests, i / 1000 can be changed to density
+		# do not forget about metric properties of the Euclidean feature space
+		features_1[i] = math.log(math.log(object_info_tmp.eccentricity, 10), 10)
+		features_2[i] = i / 1000
+
+		object_infos.append(object_info_tmp)
+
+	classes = oft.k_means(features_1, features_2)
+
+	for i in range(object_count):
+		object_infos[i].__class__ = f"{chr(ord('A') + int(classes[i]))}"
+
+	for i in range(height):
+		for j in range(width):
+			if object_map[i, j, 1] != 0:
+				objects_image_array[i, j] = color_array[np.uint64(object_map[i, j, 1] - 1)]
+			elif object_map[i, j, 0] != 0:
+				objects_image_array[i, j] = [np.uint8(255) - image_array[i, j] for _ in range(3)]
+			else:
+				objects_image_array[i, j] = np.uint8(255), np.uint8(255), np.uint8(255)
+
+	for i in range(object_count):
+		o_height, o_width = objects_list[i].shape
+
+		for j in range(o_height):
+			for k in range(o_width):
+				objects_list[i][j, k] = np.uint8(255) - objects_list[i][j, k]
+
+	fig = plt.figure(figsize = (10, 5))
+	gs = gsp.GridSpec(object_count, 3, width_ratios = [4, 1, 1])
+
+	ax_big = plt.subplot(gs[:, 0])
+	ax_big.imshow(objects_image_array)
+	ax_big.axis("off")
+
+	for i in range(object_count):
+		o_title = f"CLASS {object_infos[i].__class__}\n" \
+			f"Eccentricity: {object_infos[i].eccentricity:.2f}\n" \
+			f"Density: {object_infos[i].density:.2f}\n" \
+			f"Perimeter: {object_infos[i].perimeter:.2f}\n" \
+			f"Square: {object_infos[i].square:.2f}\n"
+
+		ax_small = plt.subplot(gs[i, 1])
+		ax_small.imshow(objects_list[i], cmap = "gray")
+		ax_small.axis("off")
+
+		ax_small_2 = plt.subplot(gs[i, 2])
+		ax_small_2.text(0.0, 0.0, o_title, horizontalalignment = "center", verticalalignment = "center",
+						transform = ax_small_2.transAxes, fontsize = 8, color = "black")
+		ax_small_2.axis("off")
+
+	plt.tight_layout()
+	plt.show()

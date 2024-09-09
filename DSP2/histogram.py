@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-def histogram(image_array):
+def histogram(image_array: np.ndarray) -> np.ndarray:
 
 	if image_array.ndim == 2:
 		height, width = image_array.shape
@@ -41,44 +41,55 @@ def histogram(image_array):
 		raise Exception("Not implemented.")
 
 
-def plot_image(image_array, wnd_string = "Another plot", histo_plot = True):
+def plot_image(image_list: list[np.ndarray], wnd_string = "Plot", histo_plot = True):
+
+	count = len(image_list)
 
 	if histo_plot:
-		histogram_array = histogram(image_array)
-
-		fig, axes = plt.subplots(1, 2, figsize = (6, 3))
+		fig, axes = plt.subplots(count, 2, figsize = (6, count * 3))
 		fig.canvas.manager.set_window_title(wnd_string)
 
-		if image_array.ndim == 2:
-			axes[0].imshow(image_array, cmap = "gray")
-			axes[1].plot(histogram_array, color = "gray")
-		elif image_array.ndim == 3:
-			axes[0].imshow(image_array)
-			axes[1].plot(histogram_array[0], color = "red")
-			axes[1].plot(histogram_array[1], color = "green")
-			axes[1].plot(histogram_array[2], color = "blue")
-			axes[1].plot(histogram_array[3], color = "gray")
-		else:
-			raise Exception("Shit happens.")
+		for i in range(count):
+			axes_num = i * 2
+			histogram_array = histogram(image_list[i])
 
-		axes[0].axis("off")
-		axes[0].set_title("Image")
-		axes[1].set_xlim([0, 255])
-		axes[1].set_title("Histogram")
-		axes[1].set_xlabel("Value")
-		axes[1].set_ylabel("Frequency")
+			if image_list[i].ndim == 2:
+				axes[axes_num + 0].imshow(image_list[i], cmap = "gray")
+				axes[axes_num + 1].plot(histogram_array, color = "gray")
+			elif image_list[i].ndim == 3:
+				axes[axes_num + 0].imshow(image_list[i])
+				axes[axes_num + 1].plot(histogram_array[0], color = "red")
+				axes[axes_num + 1].plot(histogram_array[1], color = "green")
+				axes[axes_num + 1].plot(histogram_array[2], color = "blue")
+				axes[axes_num + 1].plot(histogram_array[3], color = "gray")
+			else:
+				raise Exception("Shit happens.")
+
+			axes[axes_num + 0].axis("off")
+			axes[axes_num + 0].set_title("Image")
+
+			axes[axes_num + 1].set_title("Histogram")
+			axes[axes_num + 1].set_xlabel("Value")
+			axes[axes_num + 1].set_ylabel("Frequency")
+			axes[axes_num + 1].set_xlim([0, 255])
 
 		plt.tight_layout()
 		plt.show()
 
 	else:
-
-		fig, axes = plt.subplots(1, 1, figsize = (3, 3))
+		fig, axes = plt.subplots(count, 1, figsize = (3, count * 3))
 		fig.canvas.manager.set_window_title(wnd_string)
 
-		axes[0].imshow(image_array)
-		axes[0].axis("off")
-		axes[0].set_title("Image")
+		for i in range(count):
+			if image_list[i].ndim == 2:
+				axes[i].imshow(image_list[i], cmap = "gray")
+			elif image_list[i].ndim == 3:
+				axes[i].imshow(image_list[i])
+			else:
+				raise Exception("Shit happens.")
+
+			axes[i].axis("off")
+			axes[i].set_title("Image")
 
 		plt.tight_layout()
 		plt.show()
