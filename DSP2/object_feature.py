@@ -18,9 +18,21 @@ def calc_axis_eccentricity(object_array: np.ndarray, center_x: float, center_y: 
 				mu_xx += delta_x * delta_x * float(object_array[i, j])
 				mu_yy += delta_y * delta_y * float(object_array[i, j])
 
-	axis_angle = math.atan((mu_xy / (mu_xx - mu_yy)) * 2.0) * 0.5
-	eccentricity = (mu_xx + mu_yy + ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) \
-				 / (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5)
+	# This method gives an incomplete result due to the loss of the coordinate quadrant number
+	# in the arctan(y / x) operation versus the method below using arctan2(y, x)
+	#axis_angle = math.atan(
+	#	float("inf") if (mu_xx - mu_yy) == 0 else (mu_xy / (mu_xx - mu_yy)) * 2.0
+	#) * 0.5
+
+	cov_matrix = np.array([[mu_xx, mu_xy], [mu_xy, mu_yy]])
+	eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+	principal_axis = eigenvectors[:, np.argmax(eigenvalues)]
+	axis_angle = np.arctan2(principal_axis[1], principal_axis[0])
+
+	eccentricity = float("inf") \
+		if (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) == 0 \
+		else (mu_xx + mu_yy + ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) \
+		 / (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) \
 
 	return axis_angle, eccentricity
 

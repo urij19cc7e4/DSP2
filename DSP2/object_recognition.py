@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from collections import defaultdict
 from matplotlib import gridspec as gsp
 from matplotlib import pyplot as plt
+
+import cv2
 import math
 import numpy as np
 import random as rnd
@@ -12,7 +14,7 @@ import object_feature as oft
 
 # FOR RECURSIVE IMPLEMENTATION
 # INCREASE IN CASE OF STACKOVERFLOW
-sys.setrecursionlimit(65535)
+sys.setrecursionlimit(1048575)
 
 
 # OBJECT(S) OUTER EDGE(S) SHOULD NOT BE OUTSIDE OF IMAGE OR OVERLAP
@@ -129,10 +131,10 @@ def recognize_sequential(image_array):
 		for i in range(height):
 			for j in range(width):
 				if image_array[i, j] == 255:
-					i_same_j_prev = object_map[i, j - 1, 0]
-					i_prev_j_next = object_map[i - 1, j + 1, 0]
-					i_prev_j_same = object_map[i - 1, j, 0]
-					i_prev_j_prev = object_map[i - 1, j - 1, 0]
+					i_same_j_prev = object_map[i, j - 1, 0] if j > 0 else 0
+					i_prev_j_next = object_map[i - 1, j + 1, 0] if i > 0 and j < width - 1 else 0
+					i_prev_j_same = object_map[i - 1, j, 0] if i > 0 else 0
+					i_prev_j_prev = object_map[i - 1, j - 1, 0] if i > 0 and j > 0 else 0
 					connections = np.uint64(i_same_j_prev != 0) + np.uint64(i_prev_j_next != 0) \
 						+ np.uint64(i_prev_j_same != 0) + np.uint64(i_prev_j_prev != 0)
 
@@ -281,6 +283,52 @@ class object_info:
 	square: float = 0.0
 
 
+# Written by chatgpt
+def calculate_intersections(x_max, x_min, y_max, y_min, theta):
+
+	m = math.tan(theta)
+	
+	if theta >= 0:
+		# Intersection with right boundary
+		y_right = m * x_max
+		if y_min <= y_right <= y_max:
+			line_x_max = x_max
+			line_y_max = y_right
+		else:
+			line_x_max = y_max / m
+			line_y_max = y_max
+		
+		# Intersection with bottom boundary
+		y_left = m * x_min
+		if y_min <= y_left <= y_max:
+			line_x_min = x_min
+			line_y_min = y_left
+		else:
+			line_x_min = y_min / m
+			line_y_min = y_min
+	else:
+		# Intersection with left boundary
+		y_left = m * x_min
+		if y_min <= y_left <= y_max:
+			line_x_min = x_min
+			line_y_min = y_left
+		else:
+			line_x_min = y_min / m
+			line_y_min = y_min
+		
+		# Intersection with top boundary
+		y_right = m * x_max
+		if y_min <= y_right <= y_max:
+			line_x_max = x_max
+			line_y_max = y_right
+		else:
+			line_x_max = y_max / m
+			line_y_max = y_max
+	
+	return int(round(line_x_min)), int(round(line_y_min)), \
+		   int(round(line_x_max)), int(round(line_y_max))
+
+
 def plot_objects(image_array):
 
 	height, width = image_array.shape
@@ -320,19 +368,57 @@ def plot_objects(image_array):
 		object_info_tmp.square = oft.calc_square(objects_list[i])
 		object_info_tmp.density = oft.calc_density(object_info_tmp.perimeter, object_info_tmp.square)
 
-		# VALUES FOR PICTURE IN MANUAL (3 screws, cube, ring, and plate)
-		# would separate screws from 'rounded' objects
-		# but no need of logs in lab tests, i / 1000 can be changed to density
-		# do not forget about metric properties of the Euclidean feature space
-		features_1[i] = math.log(math.log(object_info_tmp.eccentricity, 10), 10)
-		features_2[i] = i / 1000
+		# VALUES FOR PICTURE OF CYPHERS
+		features_1[i] = object_info_tmp.eccentricity
+		features_2[i] = object_info_tmp.density
+
+		## VALUES FOR PICTURE IN MANUAL (3 screws, cube, ring, and plate)
+		## would separate screws from 'rounded' objects
+		## but no need of logs in lab tests, i / 1000 can be changed to density
+		## do not forget about metric properties of the Euclidean feature space
+		#features_1[i] = math.log(math.log(object_info_tmp.eccentricity, 10), 10)
+		#features_2[i] = i / 1000
 
 		object_infos.append(object_info_tmp)
 
-	classes = oft.k_means(features_1, features_2)
+	classes = oft.k_means(features_1, features_2, 6)
 
 	for i in range(object_count):
 		object_infos[i].__class__ = f"{chr(ord('A') + int(classes[i]))}"
+	
+	rgb_objects_list = []
+
+	for i in range(object_count):
+		o_height, o_width = objects_list[i].shape
+		rgb_object_array = np.empty((o_height, o_width, 3), dtype = np.uint8)
+
+		for j in range(o_height):
+			for k in range(o_width):
+				rgb_object_array[j, k] = np.uint8(255) - objects_list[i][j, k]
+
+		axis_angle = object_infos[i].axis_angle
+		center_x, center_y = int(round(object_infos[i].center_x)), int(round(object_infos[i].center_y))
+		x_max, x_min = min(center_x + o_height // 4, o_height - 1), max(center_x - o_height // 4, 0)
+		y_max, y_min = min(center_y + o_width // 4, o_width - 1), max(center_y - o_width // 4, 0)
+
+		cross_x_max, cross_x_min = min(center_x + o_height // 8, o_height - 1), max(center_x - o_height // 8, 0)
+		cross_y_max, cross_y_min = min(center_y + o_width // 8, o_width - 1), max(center_y - o_width // 8, 0)
+
+		intersections = calculate_intersections(
+			x_max - center_x, x_min - center_x, y_max - center_y, y_min - center_y, axis_angle
+		)
+		line_pt_1 = intersections[1] + center_y, intersections[0] + center_x
+		line_pt_2 = intersections[3] + center_y, intersections[2] + center_x
+		thickness = max(1, int(round(max(o_height, o_width) / 200)))
+
+		cv2.line(rgb_object_array, line_pt_1, line_pt_2, (0, 255, 0), thickness)
+
+		cv2.line(rgb_object_array, (cross_y_max, center_x), (cross_y_min, center_x), (255, 0, 0),
+				 thickness)
+		cv2.line(rgb_object_array, (center_y, cross_x_max), (center_y, cross_x_min), (255, 0, 0),
+				 thickness)
+
+		rgb_objects_list.append(rgb_object_array)
 
 	for i in range(height):
 		for j in range(width):
@@ -342,13 +428,6 @@ def plot_objects(image_array):
 				objects_image_array[i, j] = [np.uint8(255) - image_array[i, j] for _ in range(3)]
 			else:
 				objects_image_array[i, j] = np.uint8(255), np.uint8(255), np.uint8(255)
-
-	for i in range(object_count):
-		o_height, o_width = objects_list[i].shape
-
-		for j in range(o_height):
-			for k in range(o_width):
-				objects_list[i][j, k] = np.uint8(255) - objects_list[i][j, k]
 
 	fig = plt.figure(figsize = (10, 5))
 	gs = gsp.GridSpec(object_count, 3, width_ratios = [4, 1, 1])
@@ -365,7 +444,7 @@ def plot_objects(image_array):
 			f"Square: {object_infos[i].square:.2f}\n"
 
 		ax_small = plt.subplot(gs[i, 1])
-		ax_small.imshow(objects_list[i], cmap = "gray")
+		ax_small.imshow(rgb_objects_list[i])
 		ax_small.axis("off")
 
 		ax_small_2 = plt.subplot(gs[i, 2])

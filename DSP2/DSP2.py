@@ -10,8 +10,8 @@ import histogram as hst
 import object_feature as oft
 import object_recognition as orc
 
-image = img.open('C:/Users/Urij/Downloads/objects — копия.png')
+image = img.open("lab_2_task_small.png")
 image = image.convert('RGB')
 image_array = np.array(image)
 
-orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 255, 240, 0, 255))
+orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 191, 0, 0, 255))

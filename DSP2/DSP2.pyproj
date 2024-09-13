@@ -33,6 +33,9 @@
     <Compile Include="histogram.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lab_1_task.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="object_feature.py">
       <SubType>Code</SubType>
     </Compile>
