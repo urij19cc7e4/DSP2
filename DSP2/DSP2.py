@@ -10,8 +10,19 @@ import histogram as hst
 import object_feature as oft
 import object_recognition as orc
 
-image = img.open("lab_2_task_small.png")
+import lab_1_task
+
+#lab_1_task.do_lab_1_task()
+
+image = img.open("lab_1_task\\1695138157743_blur_custom_filter.png")
+image = image.resize((image.size[0] // 2, image.size[1] // 2))
 image = image.convert('RGB')
 image_array = np.array(image)
 
-orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 191, 0, 0, 255))
+orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 255, 1, 255, 0))
+
+#image = img.open("lab_2_task_small.png")
+#image = image.convert('RGB')
+#image_array = np.array(image)
+
+#orc.plot_objects(ep.cut_window_preparation(ep.grayscale(image_array), 191, 0, 0, 255))

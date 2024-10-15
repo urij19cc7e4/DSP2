@@ -18,19 +18,27 @@ def calc_axis_eccentricity(object_array: np.ndarray, center_x: float, center_y: 
 				mu_xx += delta_x * delta_x * float(object_array[i, j])
 				mu_yy += delta_y * delta_y * float(object_array[i, j])
 
-	# This method gives an incomplete result due to the loss of the coordinate quadrant number
-	# in the arctan(y / x) operation versus the method below using arctan2(y, x)
+	# The method presented in manual and implemented right below this statement
+	# gives an incomplete result due to the loss of the coordinate quadrant number
+	# in the arctan(y / x) operation versus the method using arctan2(y, x)
+	#
 	#axis_angle = math.atan(
-	#	float("inf") if (mu_xx - mu_yy) == 0 else (mu_xy / (mu_xx - mu_yy)) * 2.0
+	#	float("inf") if mu_xx - mu_yy == 0.0 else (mu_xy / (mu_xx - mu_yy)) * 2.0
 	#) * 0.5
+	#
+	# The method presented and implemented below calculates eigenvectors and eigenvalues
+	# ​​of the covariance matrix then calculates principal axes then calculates angle
 
-	cov_matrix = np.array([[mu_xx, mu_xy], [mu_xy, mu_yy]])
+	cov_matrix = np.array([
+		[mu_xx, mu_xy],
+		[mu_xy, mu_yy]
+	])
 	eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
-	principal_axis = eigenvectors[:, np.argmax(eigenvalues)]
-	axis_angle = np.arctan2(principal_axis[1], principal_axis[0])
+	principal_axes = eigenvectors[:, np.argmax(eigenvalues)]
+	axis_angle = np.arctan2(principal_axes[1], principal_axes[0])
 
 	eccentricity = float("inf") \
-		if (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) == 0 \
+		if (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) == 0.0 \
 		else (mu_xx + mu_yy + ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) \
 		 / (mu_xx + mu_yy - ((mu_xx - mu_yy) ** 2.0 + mu_xy * mu_xy * 4.0) ** 0.5) \
 
@@ -83,6 +91,13 @@ def calc_square(object_array: np.ndarray) -> float:
 	return result / 255.0
 
 
+# This method implemented only for 2 features but can be easely reimplemented for n features:
+#
+# distance = 0.0
+# (distance += (features_n[i] - center_array[j][n - 1]) ** 2.0) for n in range(feature_count)
+# distance = distance ** 0.5
+#
+# If only one feature needed use same values for another
 def k_means(features_1: np.ndarray[float], features_2: np.ndarray[float], class_count = 2) -> np.ndarray:
 
 	object_count = features_1.shape[0]
@@ -94,8 +109,8 @@ def k_means(features_1: np.ndarray[float], features_2: np.ndarray[float], class_
 	max_distance = float((f1_max - f1_min) ** 2.0 + (f2_max - f2_min) ** 2.0) ** 0.5
 
 	for i in range(class_count):
-		center_array[i][0] = rnd.uniform(f1_min, f1_max)
-		center_array[i][1] = rnd.uniform(f2_min, f2_max)
+		center_array[i][0] = f1_max if f1_max == f1_min else rnd.uniform(f1_min, f1_max)
+		center_array[i][1] = f2_max if f2_max == f2_min else rnd.uniform(f2_min, f2_max)
 
 	while True:
 		__continue__ = False

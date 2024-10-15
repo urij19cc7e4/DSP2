@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 from matplotlib import gridspec as gsp
 from matplotlib import pyplot as plt
+from scipy.ndimage import laplace
 
 import cv2
 import math
@@ -227,17 +228,182 @@ def recognize_sequential(image_array):
 		raise Exception("Image must be grayscaled.")
 
 
-def split_objects(image_array, objects_map, objects_count):
+def bresenham_line(image_array, x0, y0, x1, y1):
 
-	height, width, _ = objects_map.shape
-	objects_params = np.tile([height, width, 0, 0], (objects_count, 4))
+	dx = abs(x1 - x0)
+	dy = abs(y1 - y0)
+
+	sx = 1 if x0 < x1 else -1
+	sy = 1 if y0 < y1 else -1
+
+	err = dx - dy
+
+	while x0 != x1 or y0 != y1:
+		image_array[x0, y0] = np.uint8(0)
+
+		if err * 2 > -dy:
+			err -= dy
+			x0 += sx
+		elif err * 2 < dx:
+			err += dx
+			y0 += sy
+
+	image_array[x0, y0] = np.uint8(0)
+
+
+def search_recursive(check_array, dist_array, __abs_tol__, ii, jj, ii_prev, jj_prev, ir, jr):
+
+	if not check_array[ii, jj]:
+		check_array[ii, jj] = True
+		ii_array = np.array([ii, ii - 1, ii - 1, ii - 1, ii, ii + 1, ii + 1, ii + 1])
+		jj_array = np.array([jj - 1, jj - 1, jj, jj + 1, jj + 1, jj + 1, jj, jj - 1])
+
+		for k in range(ir, jr):
+			kk = k % 8
+
+			if math.isclose(dist_array[ii, jj], dist_array[ii_array[kk], jj_array[kk]], abs_tol = __abs_tol__):
+				if not math.isclose(0.0, dist_array[ii_array[kk], jj_array[kk]], abs_tol = __abs_tol__) and not (ii_array[kk] == ii_prev or jj_array[kk] == jj_prev):
+					if search_recursive(check_array, dist_array, __abs_tol__, ii_array[kk], jj_array[kk], ii, jj, ir, jr) == 1:
+						return 1
+			else:
+				if dist_array[ii, jj] < dist_array[ii_array[kk], jj_array[kk]]:
+					return 1
+
+	return 0
+
+
+def separate_recursive(dist_array, ii, jj):
+
+	ii_array = np.array([ii, ii - 1, ii - 1, ii - 1, ii, ii + 1, ii + 1, ii + 1])
+	jj_array = np.array([jj - 1, jj - 1, jj, jj + 1, jj + 1, jj + 1, jj, jj - 1])
+
+	next_coords = 0
+
+	for k in range(1, 8):
+		if dist_array[ii_array[next_coords], jj_array[next_coords]] > dist_array[ii_array[k], jj_array[k]]:
+			next_coords = k
+
+	if dist_array[ii, jj] > dist_array[ii_array[next_coords], jj_array[next_coords]]:
+		return separate_recursive(dist_array, ii_array[next_coords], jj_array[next_coords])
+	else:
+		return ii, jj
+
+
+def separate_objects(image_array, thickness = 0.1):
+
+	height, width = image_array.shape
+	dist_array = cv2.distanceTransform(image_array, cv2.DIST_L2, 0)
+	laplace_array = laplace(dist_array)
+
+	list_coord = []
+	max_dist = (float(height) ** 2.0 + float(width) ** 2.0) ** 0.5
+	abs_thickness = np.uint64(max_dist * thickness * 0.5)
+	__abs_tol__ = 1.0 / max_dist
+
+	for i in range(2, height - 2):
+		for j in range(2, width - 2):
+			if dist_array[i, j] < abs_thickness:
+				i_array = np.array([i, i - 1, i - 1, i - 1, i, i + 1, i + 1, i + 1])
+				j_array = np.array([j - 1, j - 1, j, j + 1, j + 1, j + 1, j, j - 1])
+				local_max_min_array = np.empty(8, dtype = int)
+
+				for k in range(8):
+					if math.isclose(dist_array[i, j], dist_array[i_array[k], j_array[k]], abs_tol = __abs_tol__):
+						check_array = np.zeros((height, width), dtype = bool)
+
+						if search_recursive(check_array, dist_array, __abs_tol__, i_array[k], j_array[k], i, j, k - 2, k + 3) == 1:
+							local_max_min_array[k] = 2
+						else:
+							local_max_min_array[k] = 0
+					else:
+						local_max_min_array[k] = 1 if dist_array[i, j] > dist_array[i_array[k], j_array[k]] else -1
+
+				start_index = 0
+				for k in range(1, 8):
+					if local_max_min_array[k] != local_max_min_array[k - 1]:
+						start_index = k
+						break
+
+				lmm_concatenated = [local_max_min_array[start_index]]
+				for val in np.roll(local_max_min_array, -start_index)[1:]:
+					if val == 2 and lmm_concatenated[-1] == 0:
+						lmm_concatenated[-1] = 2
+					elif val != lmm_concatenated[-1]:
+						lmm_concatenated.append(val)
+
+				lmm_count = 0
+				for k in range(len(lmm_concatenated)):
+					if lmm_concatenated[k] == 0 or lmm_concatenated[k] == 2:
+						if lmm_concatenated[k - 1] == lmm_concatenated[(k + 1) % len(lmm_concatenated)] == 1 and lmm_concatenated[k] == 2:
+							lmm_count += 1
+						elif lmm_concatenated[k - 1] == lmm_concatenated[(k + 1) % len(lmm_concatenated)] == -1:
+							lmm_count += 1
+						elif lmm_concatenated[k - 1] == lmm_concatenated[(k + 1) % len(lmm_concatenated)]:
+							lmm_count -= 1
+					else:
+						lmm_count += 1
+
+				if lmm_count == 4:
+					list_coord.append((i, j))
+
+	final_list_coord = []
+	group_list_coord = []
+
+	for val in list_coord:
+		new_val = True
+
+		for g_lst in group_list_coord:
+			for g_val in g_lst:
+				avg_dist = float(dist_array[g_val] + dist_array[val]) / 2.0
+				val_dist = (float(g_val[0] - val[0]) ** 2.0 + float(g_val[1] - val[1]) ** 2.0) ** 0.5
+
+				if avg_dist > val_dist:
+					g_lst.append(val)
+					new_val = False
+					break
+
+			if not new_val:
+				break
+
+		if new_val:
+			group_list_coord.append([val])
+
+	for g_lst in group_list_coord:
+		val = g_lst[0]
+
+		for g_val in g_lst:
+			if laplace_array[val] > laplace_array[g_val]:
+				val = g_val
+
+		final_list_coord.append(val)
+
+	for f_val in final_list_coord:
+		ii_array = np.array([f_val[0], f_val[0] - 1, f_val[0] - 1, f_val[0] - 1, f_val[0], f_val[0] + 1, f_val[0] + 1, f_val[0] + 1])
+		jj_array = np.array([f_val[1] - 1, f_val[1] - 1, f_val[1], f_val[1] + 1, f_val[1] + 1, f_val[1] + 1, f_val[1], f_val[1] - 1])
+
+		next_coords = 0
+
+		for k in range(1, 8):
+			if dist_array[ii_array[next_coords], jj_array[next_coords]] > dist_array[ii_array[k], jj_array[k]]:
+				next_coords = k
+
+		line_pt_1 = separate_recursive(dist_array, ii_array[next_coords], jj_array[next_coords])
+		line_pt_2 = separate_recursive(dist_array, ii_array[(next_coords + 4) % 8], jj_array[(next_coords + 4) % 8])
+
+		bresenham_line(image_array, line_pt_1[0], line_pt_1[1], line_pt_2[0], line_pt_2[1])
+
+
+def split_objects(image_array, object_map, object_count):
+
+	height, width, _ = object_map.shape
+	objects_params = np.tile([height, width, 0, 0], (object_count, 4))
 	objects_list = []
 	edges_list = []
 
 	for i in range(height):
 		for j in range(width):
-			if objects_map[i, j, 0] != 0:
-				index = np.uint64(objects_map[i, j, 0] - 1)
+			if object_map[i, j, 0] != 0:
+				index = np.uint64(object_map[i, j, 0] - 1)
 
 				if objects_params[index, 0] > i:
 					objects_params[index, 0] = i
@@ -248,7 +414,7 @@ def split_objects(image_array, objects_map, objects_count):
 				if objects_params[index, 3] < j:
 					objects_params[index, 3] = j
 
-	for i in range(objects_count):
+	for i in range(object_count):
 		index = i + 1
 		o_height = objects_params[i, 2] - objects_params[i, 0] + 1
 		o_width = objects_params[i, 3] - objects_params[i, 1] + 1
@@ -260,9 +426,9 @@ def split_objects(image_array, objects_map, objects_count):
 				index_1 = np.uint64(objects_params[i, 0] + ii)
 				index_2 = np.uint64(objects_params[i, 1] + jj)
 
-				if objects_map[index_1, index_2, 0] == index:
+				if object_map[index_1, index_2, 0] == index:
 					object_array[ii, jj] = image_array[index_1, index_2]
-				if objects_map[index_1, index_2, 1] == index:
+				if object_map[index_1, index_2, 1] == index:
 					edges_array[ii, jj] = np.uint8(255)
 
 		objects_list.append(object_array)
@@ -332,6 +498,7 @@ def calculate_intersections(x_max, x_min, y_max, y_min, theta):
 def plot_objects(image_array):
 
 	height, width = image_array.shape
+	separate_objects(image_array, 0.075)
 	object_map, object_count = recognize_recursive(image_array)
 	objects_list, edges_list = split_objects(image_array, object_map, object_count)
 
@@ -348,7 +515,7 @@ def plot_objects(image_array):
 	])
 
 	color_array = np.array([
-		[bright_colors[rnd.randint(0, 8)]] for _ in range(object_count)
+		[bright_colors[k % 8]] for k in range(object_count)
 	])
 
 	objects_image_array = np.empty((height, width, 3), dtype = np.uint8)
@@ -368,20 +535,20 @@ def plot_objects(image_array):
 		object_info_tmp.square = oft.calc_square(objects_list[i])
 		object_info_tmp.density = oft.calc_density(object_info_tmp.perimeter, object_info_tmp.square)
 
-		# VALUES FOR PICTURE OF CYPHERS
-		features_1[i] = object_info_tmp.eccentricity
-		features_2[i] = object_info_tmp.density
+		# VALUES FOR PICTURE OF FIGURES
+		features_1[i] = object_info_tmp.density
+		features_2[i] = object_info_tmp.square
 
 		## VALUES FOR PICTURE IN MANUAL (3 screws, cube, ring, and plate)
 		## would separate screws from 'rounded' objects
-		## but no need of logs in lab tests, i / 1000 can be changed to density
+		## but no need of logs in lab tests, 0.0 can be changed to density
 		## do not forget about metric properties of the Euclidean feature space
 		#features_1[i] = math.log(math.log(object_info_tmp.eccentricity, 10), 10)
-		#features_2[i] = i / 1000
+		#features_2[i] = 0.0
 
 		object_infos.append(object_info_tmp)
 
-	classes = oft.k_means(features_1, features_2, 6)
+	classes = oft.k_means(features_1, features_2, 2)
 
 	for i in range(object_count):
 		object_infos[i].__class__ = f"{chr(ord('A') + int(classes[i]))}"
@@ -409,21 +576,19 @@ def plot_objects(image_array):
 		)
 		line_pt_1 = intersections[1] + center_y, intersections[0] + center_x
 		line_pt_2 = intersections[3] + center_y, intersections[2] + center_x
-		thickness = max(1, int(round(max(o_height, o_width) / 200)))
+		thickness = max(1, int(round(max(o_height, o_width) / 375.0)))
 
 		cv2.line(rgb_object_array, line_pt_1, line_pt_2, (0, 255, 0), thickness)
 
-		cv2.line(rgb_object_array, (cross_y_max, center_x), (cross_y_min, center_x), (255, 0, 0),
-				 thickness)
-		cv2.line(rgb_object_array, (center_y, cross_x_max), (center_y, cross_x_min), (255, 0, 0),
-				 thickness)
+		cv2.line(rgb_object_array, (cross_y_max, center_x), (cross_y_min, center_x), (255, 0, 0), thickness)
+		cv2.line(rgb_object_array, (center_y, cross_x_max), (center_y, cross_x_min), (255, 0, 0), thickness)
 
 		rgb_objects_list.append(rgb_object_array)
 
 	for i in range(height):
 		for j in range(width):
-			if object_map[i, j, 1] != 0:
-				objects_image_array[i, j] = color_array[np.uint64(object_map[i, j, 1] - 1)]
+			if object_map[i, j, 0] != 0:
+				objects_image_array[i, j] = color_array[np.uint64(object_map[i, j, 0] - 1)]
 			elif object_map[i, j, 0] != 0:
 				objects_image_array[i, j] = [np.uint8(255) - image_array[i, j] for _ in range(3)]
 			else:
