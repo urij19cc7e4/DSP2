@@ -8,9 +8,21 @@ import cv2
 import math
 import numpy as np
 import random as rnd
+from PIL import Image as img
+from PIL import ImageOps as imgops
 import sys
 
+import tensorflow as tf
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+
 import object_feature as oft
+
+
+tf.config.threading.set_inter_op_parallelism_threads(16)
+tf.config.threading.set_intra_op_parallelism_threads(16)
 
 
 # FOR RECURSIVE IMPLEMENTATION
@@ -495,10 +507,55 @@ def calculate_intersections(x_max, x_min, y_max, y_min, theta):
 		   int(round(line_x_max)), int(round(line_y_max))
 
 
+def resize_and_pad_image(image, target_size = (28, 28)):
+	image = img.fromarray(np.squeeze(image, axis=0))
+	width, height = image.size
+	max_dim = max(width, height)
+	padded_image = imgops.pad(image, (max_dim, max_dim), color = (0, 0, 0))
+	resized_image = padded_image.resize(target_size)
+	resized_image = cv2.erode(np.array(resized_image), np.ones((3, 3), np.uint8), iterations = 1)
+	return np.clip(resized_image.astype(np.float32), 0.0, 1.0)
+
+
 def plot_objects(image_array):
 
+	#(X_train, y_train), (X_test, y_test) = mnist.load_data()
+
+	#X_train = X_train / 255.0
+	#X_test = X_test / 255.0
+
+	#y_train = to_categorical(y_train, num_classes = 10)
+	#y_test = to_categorical(y_test, num_classes = 10)
+
+	#model = Sequential([
+	#	Input((28, 28, 1)),
+
+	#	Conv2D(4, kernel_size = (5, 5), activation = 'relu'),
+	#	MaxPooling2D(pool_size = (2, 2)),
+
+	#	Conv2D(24, kernel_size = (5, 5), activation = 'relu'),
+	#	MaxPooling2D(pool_size = (2, 2)),
+
+	#	Conv2D(144, kernel_size = (3, 3), activation = 'relu'),
+	#	MaxPooling2D(pool_size = (2, 2)),
+
+	#	Flatten(),
+
+	#	Dense(324, activation = 'relu'),
+
+	#	Dense(24, activation = 'relu'),
+
+	#	Dense(10, activation = 'softmax')
+	#])
+
+	#model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+	#model.fit(X_train, y_train, epochs = 225, validation_data = (X_test, y_test))
+	#model.save('my_model.h5')
+
+	model = load_model('my_model.h5')
+
 	height, width = image_array.shape
-	separate_objects(image_array, 0.075)
+	#separate_objects(image_array, 0.075)
 	object_map, object_count = recognize_recursive(image_array)
 	objects_list, edges_list = split_objects(image_array, object_map, object_count)
 
@@ -548,10 +605,10 @@ def plot_objects(image_array):
 
 		object_infos.append(object_info_tmp)
 
-	classes = oft.k_means(features_1, features_2, 2)
+	#classes = oft.k_means(features_1, features_2, 2)
 
 	for i in range(object_count):
-		object_infos[i].__class__ = f"{chr(ord('A') + int(classes[i]))}"
+		object_infos[i].__class__ = f"NONE"
 	
 	rgb_objects_list = []
 
@@ -578,10 +635,33 @@ def plot_objects(image_array):
 		line_pt_2 = intersections[3] + center_y, intersections[2] + center_x
 		thickness = max(1, int(round(max(o_height, o_width) / 375.0)))
 
-		cv2.line(rgb_object_array, line_pt_1, line_pt_2, (0, 255, 0), thickness)
+		#cv2.line(rgb_object_array, line_pt_1, line_pt_2, (0, 255, 0), thickness)
 
-		cv2.line(rgb_object_array, (cross_y_max, center_x), (cross_y_min, center_x), (255, 0, 0), thickness)
-		cv2.line(rgb_object_array, (center_y, cross_x_max), (center_y, cross_x_min), (255, 0, 0), thickness)
+		#cv2.line(rgb_object_array, (cross_y_max, center_x), (cross_y_min, center_x), (255, 0, 0), thickness)
+		#cv2.line(rgb_object_array, (center_y, cross_x_max), (center_y, cross_x_min), (255, 0, 0), thickness)
+
+		tmp_object_array = rgb_object_array
+
+		rot_matrix = cv2.getRotationMatrix2D((center_x, center_y), -object_infos[i].axis_angle / 3.14 * 180, 0.725)
+		rgb_object_array = cv2.warpAffine(tmp_object_array, rot_matrix, (o_width, o_height), borderValue = (255, 255, 255))
+
+		rot_matrix_2 = cv2.getRotationMatrix2D((center_x, center_y), -object_infos[i].axis_angle / 3.14 * 180 + 180, 0.725)
+		rgb_object_array_2 = cv2.warpAffine(tmp_object_array, rot_matrix_2, (o_width, o_height), borderValue = (255, 255, 255))
+
+		cipher_image = np.expand_dims(rgb_object_array, axis = 0)
+		rotated_image = np.expand_dims(rgb_object_array_2, axis = 0)
+
+		cipher_image = np.where(cipher_image == 255, 0, np.where(cipher_image == 0, 255, cipher_image))
+		rotated_image = np.where(rotated_image == 255, 0, np.where(rotated_image == 0, 255, rotated_image))
+
+		original_prediction = model.predict(np.reshape(resize_and_pad_image(cipher_image)[:, :, 0], (1, 28, 28, 1)))
+		rotated_prediction = model.predict(np.reshape(resize_and_pad_image(rotated_image)[:, :, 0], (1, 28, 28, 1)))
+
+		if np.max(original_prediction) * 2.0 - np.sum(original_prediction) < np.max(rotated_prediction) * 2.0 - np.sum(rotated_prediction):
+			rgb_object_array = rgb_object_array_2
+			object_infos[i].__class__ = f"{np.argmax(rotated_prediction)}"
+		else:
+			object_infos[i].__class__ = f"{np.argmax(original_prediction)}"
 
 		rgb_objects_list.append(rgb_object_array)
 
